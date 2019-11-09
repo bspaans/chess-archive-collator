@@ -23,7 +23,7 @@ Get a month's worth of PGN data:
 
 Run the program:
 
-`chess-archive-collator 2019_10.pgn`
+`chess-archive-collator --player bartspaans 2019_10.pgn`
 
 Resulting in something like this (but hopefully with more wins):
 

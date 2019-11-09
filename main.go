@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -26,6 +27,8 @@ import (
 	"github.com/freeeve/pgn"
 	"github.com/olekukonko/tablewriter"
 )
+
+var Player = flag.String("player", "bartspaans", "The player's name.")
 
 // TODO: classify openings
 // TODO: build move tree for white
@@ -47,7 +50,12 @@ func NewReport() *Report {
 
 func (r *Report) Count(game *pgn.Game) {
 
-	playingWithWhitePieces := game.Tags["White"] == Player
+	if game.Tags["White"] != *Player && game.Tags["Black"] != *Player {
+		fmt.Printf("Skipping game, because player '%s' wasn't playing (NB. you can set the player username with --player)\n", *Player)
+		return
+	}
+
+	playingWithWhitePieces := game.Tags["White"] == *Player
 	gameResult := game.Tags["Result"]
 	r.Statistic.Count(playingWithWhitePieces, gameResult)
 
@@ -126,8 +134,6 @@ func (r *Report) String() string {
 	return string(b.Bytes())
 }
 
-const Player = "bartspaans"
-
 var Openings = map[string]string{
 	"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR":          "King's Pawn Opening",
 	"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR":        "King's Pawn game",
@@ -150,20 +156,24 @@ var Openings = map[string]string{
 }
 
 func main() {
+	flag.Parse()
 	report := NewReport()
-	f, err := os.Open(os.Args[1])
-	if err != nil {
-		log.Fatal(err)
-	}
-	ps := pgn.NewPGNScanner(f)
-	// while there's more to read in the file
-	for ps.Next() {
-		// scan the next game
-		game, err := ps.Scan()
+	for _, arg := range flag.Args() {
+		fmt.Println("Processing", arg)
+		f, err := os.Open(arg)
 		if err != nil {
 			log.Fatal(err)
 		}
-		report.Count(game)
+		ps := pgn.NewPGNScanner(f)
+		// while there's more to read in the file
+		for ps.Next() {
+			// scan the next game
+			game, err := ps.Scan()
+			if err != nil {
+				log.Fatal(err)
+			}
+			report.Count(game)
+		}
 	}
 	fmt.Println(report)
 	fmt.Println(report.Statistic.Header())
