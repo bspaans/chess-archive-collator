@@ -29,5 +29,7 @@ Resulting in something like this (but hopefully with more wins):
 
 ![Example result](https://raw.githubusercontent.com/bspaans/chess-archive-collator/master/screenshot.png)
 
+Clearly that Sicilian needs some work.
+
 (classifying openings myself is work in progress/might never happen.
 Incidentally if anyone knows of an open source opening database let me know).
