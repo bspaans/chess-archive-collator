@@ -22,7 +22,6 @@ import (
 	"log"
 	"os"
 	"sort"
-	"strings"
 
 	"github.com/freeeve/pgn"
 	"github.com/olekukonko/tablewriter"
@@ -31,91 +30,6 @@ import (
 // TODO: classify openings
 // TODO: build move tree for white
 // TODO: build move tree for black
-
-type Statistic struct {
-	GamesPlayed   int
-	Won           int
-	Lost          int
-	Drawn         int
-	PlayedAsWhite int
-	PlayedAsBlack int
-	WonAsWhite    int
-	WonAsBlack    int
-	LostAsWhite   int
-	LostAsBlack   int
-	DrawnAsWhite  int
-	DrawnAsBlack  int
-}
-
-func (s *Statistic) Count(white bool, result string) {
-	s.GamesPlayed += 1
-	if white {
-		s.PlayedAsWhite += 1
-	} else {
-		s.PlayedAsBlack += 1
-	}
-	if result == "1-0" {
-		if white {
-			s.WonAsWhite += 1
-			s.Won += 1
-		} else {
-			s.LostAsBlack += 1
-			s.Lost += 1
-		}
-	} else if result == "0-1" {
-		if white {
-			s.LostAsWhite += 1
-			s.Lost += 1
-		} else {
-			s.WonAsBlack += 1
-			s.Won += 1
-		}
-	} else {
-		if white {
-			s.DrawnAsWhite += 1
-			s.Drawn += 1
-		} else {
-			s.DrawnAsBlack += 1
-			s.Drawn += 1
-		}
-	}
-}
-
-func (s *Statistic) Header() string {
-	return "Games\tWhite\tBlack\tWon\tLost\tDrawn\tWon(W)\tWon(B)\tLost(W)\tLost(B)\tDraw(W)\tDraw(B)"
-}
-
-func (s Statistic) String() string {
-	return fmt.Sprintf("%3d\t%3d\t%3d\t%3d\t%3d\t%3d\t%3d\t%3d\t%3d\t%3d\t%3d\t%3d", s.GamesPlayed, s.PlayedAsWhite, s.PlayedAsBlack, s.Won, s.Lost, s.Drawn, s.WonAsWhite, s.WonAsBlack, s.LostAsWhite, s.LostAsBlack, s.DrawnAsWhite, s.DrawnAsBlack)
-
-}
-
-func (s *Statistic) Headers() []string {
-	return strings.Split(s.Header(), "\t")
-}
-func (s Statistic) Data() []string {
-	percentage := func(c, d int) string {
-		if d == 0 || c == 0 {
-			return ""
-		}
-		return fmt.Sprintf("%3d (%0.f%%)", c, float64(c)/float64(d)*100)
-	}
-	return []string{
-		fmt.Sprintf("%d", s.GamesPlayed),
-		percentage(s.PlayedAsWhite, s.GamesPlayed),
-		percentage(s.PlayedAsBlack, s.GamesPlayed),
-		percentage(s.Won, s.GamesPlayed),
-		percentage(s.Lost, s.GamesPlayed),
-		percentage(s.Drawn, s.GamesPlayed),
-		percentage(s.WonAsWhite, s.PlayedAsWhite),
-		percentage(s.WonAsBlack, s.PlayedAsBlack),
-		percentage(s.LostAsWhite, s.PlayedAsWhite),
-		percentage(s.LostAsBlack, s.PlayedAsBlack),
-		percentage(s.DrawnAsWhite, s.PlayedAsWhite),
-		percentage(s.DrawnAsBlack, s.PlayedAsBlack),
-	}
-
-}
 
 type Report struct {
 	Openings     map[string][]*pgn.Game
@@ -127,7 +41,7 @@ func NewReport() *Report {
 	return &Report{
 		Openings:     map[string][]*pgn.Game{},
 		OpeningStats: map[string]*Statistic{},
-		Statistic:    &Statistic{},
+		Statistic:    NewStatistic(),
 	}
 }
 
@@ -160,7 +74,7 @@ func (r *Report) Count(game *pgn.Game) {
 func (r *Report) CountOpening(white bool, gameResult, opening string, game *pgn.Game) {
 	if _, ok := r.Openings[opening]; !ok {
 		r.Openings[opening] = []*pgn.Game{}
-		r.OpeningStats[opening] = &Statistic{}
+		r.OpeningStats[opening] = NewStatistic()
 	}
 	r.Openings[opening] = append(r.Openings[opening], game)
 	r.OpeningStats[opening].Count(white, gameResult)
