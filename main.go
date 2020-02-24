@@ -157,6 +157,12 @@ var Openings = map[string]string{
 
 func main() {
 	flag.Parse()
+
+	_, err := ParseECOClassificationIntoTree()
+	if err != nil {
+		panic(err)
+	}
+
 	report := NewReport()
 	for _, arg := range flag.Args() {
 		fmt.Println("Processing", arg)
