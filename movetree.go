@@ -14,6 +14,7 @@ type MoveTree struct {
 	Annotation string
 	Replies    map[string]*MoveTree
 	Parent     *MoveTree
+	Games      []*pgn.Game
 }
 
 func NewMoveTree(move, annotation string) *MoveTree {
@@ -21,7 +22,34 @@ func NewMoveTree(move, annotation string) *MoveTree {
 		Move:       move,
 		Annotation: annotation,
 		Replies:    map[string]*MoveTree{},
+		Games:      []*pgn.Game{},
 	}
+}
+
+func (m *MoveTree) ClassifyGame(game *pgn.Game) string {
+	b := pgn.NewBoard()
+	tree := m
+	fmt.Println("Classifying new game")
+	for _, move := range game.Moves {
+		fmt.Println(move)
+		// make the move on the board
+		b.MakeMove(move)
+
+		next, found := tree.Replies[move.String()]
+		if found {
+			fmt.Println("Book move", next.Annotation)
+			tree = next
+			tree.Games = append(tree.Games, game)
+		} else {
+			break
+		}
+	}
+	annotation := tree.Annotation
+	for annotation == "" {
+		tree = tree.Parent
+		annotation = tree.Annotation
+	}
+	return annotation
 }
 
 func (m *MoveTree) GetOrInsertMove(move string) *MoveTree {
@@ -31,7 +59,37 @@ func (m *MoveTree) GetOrInsertMove(move string) *MoveTree {
 	fmt.Println("Inserting at", move)
 	tree := NewMoveTree(move, "")
 	m.Replies[move] = tree
+	tree.Parent = m
 	return tree
+}
+
+func (m *MoveTree) PruneGameLessBranches() *MoveTree {
+	result := NewMoveTree(m.Move, m.Annotation)
+	result.Games = m.Games
+	for move, replyTree := range m.Replies {
+		if len(replyTree.Games) > 0 {
+			result.Replies[move] = replyTree.PruneGameLessBranches()
+			result.Replies[move].Parent = result
+		}
+	}
+	return result
+}
+
+func (m *MoveTree) String() string {
+	indent := func(s string) string {
+		lines := strings.Split(s, "\n")
+		for i, line := range lines {
+			if line != "" {
+				lines[i] = "  " + line
+			}
+		}
+		return strings.Join(lines, "\n")
+	}
+	result := fmt.Sprintf("%s [%s] (%d)\n", m.Move, m.Annotation, len(m.Games))
+	for _, tree := range m.Replies {
+		result += indent(tree.String())
+	}
+	return result
 }
 
 func (m *MoveTree) AddNodeForPGN(eco, annotation, pgnStr string) {

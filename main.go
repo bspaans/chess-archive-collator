@@ -29,6 +29,7 @@ import (
 )
 
 var Player = flag.String("player", "bartspaans", "The player's name.")
+var Order = flag.String("order", "opening", "Order rows. One of: opening, played, played-white, played-black, won, lost, drawn, won-white, won-black, lost-white, lost-black, drawn-white, drawn-black")
 
 // TODO: classify openings
 // TODO: build move tree for white
@@ -48,7 +49,7 @@ func NewReport() *Report {
 	}
 }
 
-func (r *Report) Count(game *pgn.Game) {
+func (r *Report) Count(openingTree *MoveTree, game *pgn.Game) {
 
 	if game.Tags["White"] != *Player && game.Tags["Black"] != *Player {
 		fmt.Printf("Skipping game, because player '%s' wasn't playing (NB. you can set the player username with --player)\n", *Player)
@@ -59,11 +60,17 @@ func (r *Report) Count(game *pgn.Game) {
 	gameResult := game.Tags["Result"]
 	r.Statistic.Count(playingWithWhitePieces, gameResult)
 
-	openingFound := false
-	if game.Tags["ECO"] != "" {
-		r.CountOpening(playingWithWhitePieces, gameResult, game.Tags["ECO"], game)
-		openingFound = true
+	opening := openingTree.ClassifyGame(game)
+	openingFound := opening != ""
+	if openingFound {
+		r.CountOpening(playingWithWhitePieces, gameResult, opening, game)
 	}
+	/*
+		if game.Tags["ECO"] != "" {
+			r.CountOpening(playingWithWhitePieces, gameResult, game.Tags["ECO"], game)
+			openingFound = true
+		}
+	*/
 	if !openingFound {
 		r.CountOpening(playingWithWhitePieces, gameResult, "Unknown opening", game)
 
@@ -89,20 +96,42 @@ func (r *Report) CountOpening(white bool, gameResult, opening string, game *pgn.
 }
 
 func (r *Report) String() string {
-	keys := []string{}
-	for key, _ := range r.Openings {
-		keys = append(keys, key)
+	data := [][]string{}
+	for opening, stats := range r.OpeningStats {
+		row := append([]string{LookupECO(opening)}, stats.Data()...)
+		data = append(data, row)
 
 	}
-	data := [][]string{}
-	sort.Strings(keys)
-	for _, opening := range keys {
-		stats, ok := r.OpeningStats[opening]
-		if ok {
-			row := append([]string{LookupECO(opening)}, stats.Data()...)
-			data = append(data, row)
+	sort.Slice(data, func(i, j int) bool {
+		if *Order == "opening" {
+			return data[i][0] < data[j][0]
+		} else if *Order == "played" && data[i][1] != data[j][1] {
+			return data[i][1] < data[j][1]
+		} else if *Order == "played-white" && data[i][2] != data[j][2] {
+			return data[i][2] < data[j][2]
+		} else if *Order == "played-black" && data[i][3] != data[j][3] {
+			return data[i][3] < data[j][3]
+		} else if *Order == "won" && data[i][4] != data[j][4] {
+			return data[i][4] < data[j][4]
+		} else if *Order == "lost" && data[i][5] != data[j][5] {
+			return data[i][5] < data[j][5]
+		} else if *Order == "drawn" && data[i][6] != data[j][6] {
+			return data[i][6] < data[j][6]
+		} else if *Order == "won-white" && data[i][7] != data[j][7] {
+			return data[i][7] < data[j][7]
+		} else if *Order == "won-black" && data[i][8] != data[j][8] {
+			return data[i][8] < data[j][8]
+		} else if *Order == "lost-white" && data[i][9] != data[j][9] {
+			return data[i][9] < data[j][9]
+		} else if *Order == "lost-black" && data[i][10] != data[j][10] {
+			return data[i][10] < data[j][10]
+		} else if *Order == "drawn-white" && data[i][11] != data[j][11] {
+			return data[i][11] < data[j][11]
+		} else if *Order == "drawn-black" && data[i][12] != data[j][12] {
+			return data[i][12] < data[j][12]
 		}
-	}
+		return data[i][0] < data[j][0]
+	})
 	b := bytes.NewBuffer([]byte{})
 	table := tablewriter.NewWriter(b)
 	table.SetHeader(append([]string{"Opening"}, r.Statistic.Headers()...))
@@ -158,7 +187,7 @@ var Openings = map[string]string{
 func main() {
 	flag.Parse()
 
-	_, err := ParseECOClassificationIntoTree()
+	openingTree, err := ParseECOClassificationIntoTree()
 	if err != nil {
 		panic(err)
 	}
@@ -178,10 +207,12 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			report.Count(game)
+			report.Count(openingTree, game)
 		}
 	}
 	fmt.Println(report)
 	fmt.Println(report.Statistic.Header())
 	fmt.Println(report.Statistic)
+
+	fmt.Println(openingTree.PruneGameLessBranches())
 }
